@@ -7,5 +7,10 @@
             "email": "rimelek@rimelek.hu"
         }
     ],
-    "require": {}
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "Rimelek\\Misc\\" : "src/"
+        }
+    }
 }
