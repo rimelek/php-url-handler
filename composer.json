@@ -1,0 +1,11 @@
+{
+    "name": "rimelek/misc",
+    "description": "Description of project Misc.",
+    "authors": [
+        {
+            "name": "Takács Ákos",
+            "email": "rimelek@rimelek.hu"
+        }
+    ],
+    "require": {}
+}
