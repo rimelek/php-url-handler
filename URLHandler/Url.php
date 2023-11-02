@@ -2,69 +2,71 @@
 
 namespace Rimelek\URLHandler;
 
+use Exception;
+
 /**
- * URL kezelő osztály
+ * URL handler class using parse_url and parse_str
  *
- * URL-ek feldolgozása, és kezelése mappák, paraméterek és fájl szerint.
+ * This class handles whole URLs, including path components and query string.
+ * It helps you validate the URL or get specific parts of it.
  *
- * @author Takács Ákos <rimelek@rimelek.hu>
+ * @author Ákos Takács <rimelek@rimelek.hu>
  */
 class Url
 {
 
     /**
-     * Protokol típus
+     * Protocol type
      * 
      * @var string $_protocol
      */
     protected $_protocol = '';
 
     /**
-     * Domain név
+     * Domain name
      * 
      * @var string $_domain
      */
     protected $_domain = '';
 
     /**
-     * Mappák (tömbként, sorszámozva)
+     * The path in the URL split into an array by "/"
      * 
      * @var array $_folders
      */
     protected $_folders = array();
 
     /**
-     * Port (csak ha eltér az alapértelmezettől)
+     * Port number only if it is not the default (80 for http and 443 fo https)
      * 
      * @var int $_port
      */
     protected $_port = null;
 
     /**
-     * GET típusú paraméterezés (tömbként)
+     * "GET" parameters in the query string
      * 
      * @var array $_get
      */
     protected $_get = array();
 
     /**
-     * Lekért file neve
+     * The filename at the end of the URL
      * 
      * @var string $_file
      */
     protected $_file = '';
 
     /**
-     * kettőskereszt utáni rész
+     * The fragment (or anchor) in the URL after the hashmark character
      * 
      * @var string $_fragment
      */
     protected $_fragment = '';
 
     /**
-     * Url osztály készítése.
      *
-     * @param $url Esetlegesen, a kezelendő url (vagy null)
+     * @param string $url 
      */
     public function __construct($url = null)
     {
@@ -74,7 +76,7 @@ class Url
     }
 
     /**
-     * Url érvényesség ellenőrzése
+     * Url validation
      *
      * @param string $url
      * @return boolean
@@ -85,42 +87,38 @@ class Url
         if (!preg_match('#^(ftp|http|https|gopher|mailto|news|nntp|telnet|wais|file|prospero)\://#i', $url)) {
             $start = substr($url, 0, 1);
             if ($start == ':') {
-                //porttal kezdődik. nincs domain
+                // starts with a port, without domain
                 return false;
             }
-            //kamu séma+domain a validálónak relatív urlhez.
+            // Fake scheme and domain for relative URLs (paths).
             $scheme = ($start == '/') ? 'http://domain.hu' : 'http://domain.hu/';
         }
         return (bool) filter_var($scheme . $url, FILTER_VALIDATE_URL);
     }
 
     /**
-     * Url újra validálása módosítások után
+     * Revalidate URL after modifications
      */
     protected function reValidate()
     {
         $url = $this->toHeaderString();
 
         if (!self::isValid(strstr($url, '#', true))) {
-            throw new \Exception('A kapott url (' . $url . ') nem érvényes!');
+            throw new Exception('The given URL (' . $url . ') is not valid!');
         }
     }
 
     /**
-     * Url felvitele kezelésre
+     * Parse URL
      *
-     * @param string $url A feldolgozandó url
+     * @param string $url
      * 
-     * @exception Exception 
-     *          Akkor dobódik, ha az url érvénytelennek tűnik.
-     * 
-     *  
+     * @throws Exception When the URL is invalid
      */
     public function parse($url)
     {
         /*
-         * Url feldarabolása, és részenként encodeolása. Egyben a / jeleket és
-         * egyéb jeleket is encodeolná.
+         * Splitting the URL and encoding each component
          *
          */
         $url = html_entity_decode($url);
@@ -155,7 +153,7 @@ class Url
         }
 
         if (!self::isValid($url)) {
-            throw new \Exception('A kapott url (' . $url . ') nem érvényes!');
+            throw new Exception('Invalid URL: ' . $url);
         } else {
             if (isset($fe[1])) {
                 $url = $url . '#' . $fe[1];
@@ -163,11 +161,11 @@ class Url
             $pieces = array_merge(array(
                 'scheme' => '', 'host' => '', 'port' => '', 'path' => '', 'query' => '', 'fragment' => ''
                 ), parse_url($url));
-            //Protokol, domain, port simán levehető
+            // Protocol, domain, port can be determined easily
             $this->_protocol = $pieces['scheme'];
             $this->_domain = $pieces['host'];
             $this->_port = $pieces['port'];
-            //Mappák és fájl szétszedése                        
+            // Directories and filename
             $pos = strrpos($pieces['path'], '/');
             $info['basename'] = substr($pieces['path'], $pos + 1);
             $info['dirname'] = substr($pieces['path'], 0, $pos + 1);
@@ -175,22 +173,20 @@ class Url
             if (isset($p['extension'])) {
                 $info['extension'] = $p['extension'];
             }
-            //Ha nincs útvonal, üres a dirname. Ha csak 1 mappa vagy fájl van, akkor pont
+
             $path = $info['dirname'];
             if (!empty($info['extension'])) {
-                //Ha van extension, akkor van fájl
                 $this->_file = $info['basename'];
             } else {
-                //Ha nincs extension, nincs fájl
                 $this->_file = '';
                 $path = $path . $info['basename'];
             }
 
             $this->_folders = explode('/', $path);
             $this->_fragment = $pieces['fragment'];
-            //_GET string feldolgozása
+
             if (empty($pieces['query']) || $pieces['query'] == '?') {
-                $this->_get = array(); //Nincs is _get
+                $this->_get = array();
             } else {
                 parse_str($pieces['query'], $this->_get);
             }
@@ -198,27 +194,29 @@ class Url
     }
 
     /**
-     * Stringgé alakítás opcionálisan megadható paraméter elválasztó karakterrel
+     * Convert the URL instance to string.
+     * 
+     * The query string separator can be passed as a parameter.
      *
-     * linkbe &amp;amp; jel, location-be &
+     * Use &amp;amp; in an HTML code and & in a HTTP header.
      *
-     * @param string $sep Paraméterek elválasztó karakterei
+     * @param string $sep Parameter separator character or characters
      * @return string
      */
     protected function toString($sep = '&amp;')
     {
-        //Mappák urlkódolása
+        // Encoding directories
         $folders = $this->_folders;
         array_map('urlencode', $folders);
-        //Query String készítése
+
+        // Encoding query string
         $qs = $this->_get ? '?' . http_build_query($this->_get, null, $sep) : '';
         $fragment = $this->_fragment ? '#' . $this->_fragment : '';
         $protocol = $this->_protocol ? $this->_protocol . '://' : '';
 
         $domain = '';
         if ($this->_domain) {
-            $domain = $this->_domain .
-                ($this->_port ? ':' . $this->_port : '');
+            $domain = $this->_domain . ($this->_port ? ':' . $this->_port : '');
         }
 
         $filepath = implode('/', $folders) . urlencode($this->_file);
@@ -235,8 +233,8 @@ class Url
     }
 
     /**
-     * Stringgé alakítás header átirányításhoz
-     * (& jelek a paraméterek elválasztó karakterei)
+     * Convert the URL instance to a HTTP header compatible string
+     * (Separator character is &)
      */
     public function toHeaderString()
     {
@@ -244,8 +242,7 @@ class Url
     }
 
     /**
-     * Url készítése az adatokból
-     * @return string Az url
+     * @return string
      */
     public function __toString()
     {
@@ -253,9 +250,10 @@ class Url
     }
 
     /**
-     * Paraméter lekérdezése
-     * @param string $name Paraméter neve
-     * @return string Paraméter értéke
+     * Get query string parameter
+     * 
+     * @param string $name Parameter name
+     * @return string Parameter value
      */
     public function getParam($name)
     {
@@ -263,7 +261,7 @@ class Url
     }
 
     /**
-     * GET paraméterek
+     * Get all query string parameters as an array
      *
      * @return array
      */
@@ -273,10 +271,10 @@ class Url
     }
 
     /**
-     * Paraméter beállítása
+     * Set query string parameter
      *
-     * @param string $name Paraméter neve
-     * @param string $value Paraméter értéke
+     * @param string $name Parameter name
+     * @param string $value Parameter value
      */
     public function setParam($name, $value)
     {
@@ -284,9 +282,10 @@ class Url
     }
 
     /**
-     * Paraméter létezik-e?
-     * @param string $name Paraméter neve
-     * @return bool Létezik-e?
+     * Check if the parameter exists and also set
+     * 
+     * @param string $name Parameter name
+     * @return bool
      */
     public function issetParam($name)
     {
@@ -295,7 +294,7 @@ class Url
 
     /**
      * Paraméter törlése
-     * @param $name Paraméter neve
+     * @param string $name Parameter name
      */
     public function unsetParam($name)
     {
@@ -303,9 +302,10 @@ class Url
     }
 
     /**
-     * Útvonal lekérdezése
+     * Get the path from the URL
+     * 
      * @see self::setPath()
-     * @return string Útvonal
+     * @return string
      */
     public function getPath()
     {
@@ -313,11 +313,11 @@ class Url
     }
 
     /**
-     * Útvonal váltás
+     * Set the path in the URL
      *
-     * Ha relatív az új útvonal, akkor a protokolt, domaint és portot törli.
+     * In case of the path is relative, the protocol, domain and port will be removed.
      *
-     * @param string $path Új útvonal
+     * @param string $path
      */
     public function setPath($path)
     {
@@ -327,8 +327,9 @@ class Url
     }
 
     /**
-     * Domain név lekérdezése
-     * @return string a domain név
+     * Get domain name
+     *
+     * @return string
      */
     public function getDomain()
     {
@@ -336,13 +337,15 @@ class Url
     }
 
     /**
-     * Domain név beállítása
-     * @param string $domain Domain név
+     * Set the domain
+     * 
+     * @param string $domain
+     * @throws Exception
      */
     public function setDomain($domain = '')
     {
         if (!preg_match('#^[a-z0-9_.-]*$#i', $domain)) {
-            throw new \Exception('A váltáshoz megadott domain cím hibás');
+            throw new Exception('Invalid domain name');
         }
         if (!empty($domain) and empty($this->_protocol)) {
             $this->_protocol = 'http';
@@ -354,7 +357,7 @@ class Url
     }
 
     /**
-     * Port lekérdezése
+     * Get port number
      *
      * @return string
      */
@@ -368,18 +371,19 @@ class Url
      *
      * @param string $port
      */
-    public function setPort($port = '')
+    public function setPort($port = null)
     {
         if (!preg_match('#^[0-9]*$#', (string) $port)) {
-            throw new \Exception('Az új port hibás');
+            throw new Exception('Port number is invalid');
         }
         $this->_port = $port;
         $this->reValidate();
     }
 
     /**
-     * Protokol lekérdezése
-     * @return string Protokol neve
+     * Get protocol
+     * 
+     * @return string
      */
     public function getProtocol()
     {
@@ -387,20 +391,21 @@ class Url
     }
 
     /**
-     * Protokol beállítása
-     * @param string $protocol Protokol névbű
+     * Set potocol
+     *
+     * @param string $protocol
      */
     public function setProtocol($protocol)
     {
         if (!preg_match('#^[a-z]+$#i', $protocol)) {
-            throw new \Exception('A megadott protokol hibás formátumú');
+            throw new Exception('Invalid protocol');
         }
         $this->_protocol = $protocol;
         $this->reValidate();
     }
 
     /**
-     * Fájl lekérdezése
+     * Get file name
      *
      * @return string
      */
@@ -410,7 +415,7 @@ class Url
     }
 
     /**
-     * Fájl beállítása
+     * Set file name
      *
      * @param string $file
      */
@@ -420,7 +425,7 @@ class Url
     }
 
     /**
-     * Fragment beállítása
+     * Set fragment (anchor)
      *
      * @param string $fragment
      */
@@ -430,7 +435,7 @@ class Url
     }
 
     /**
-     * Fragment lekérdezése
+     * Get fragment (anchor)
      *
      * @return string
      */
