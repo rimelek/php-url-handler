@@ -1,6 +1,6 @@
 {
-    "name": "rimelek/misc",
-    "description": "Description of project Misc.",
+    "name": "rimelek/url-handler",
+    "description": "URL handler parse URLs .",
     "authors": [
         {
             "name": "Takács Ákos",
@@ -10,7 +10,7 @@
     "require": {},
     "autoload": {
         "psr-4": {
-            "Rimelek\\Misc\\" : "src/"
+            "Rimelek\\URLHandler\\" : "src/"
         }
     }
 }

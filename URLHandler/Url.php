@@ -1,6 +1,6 @@
 <?php
 
-namespace Rimelek\Misc;
+namespace Rimelek\URLHandler;
 
 /**
  * URL kezelő osztály
