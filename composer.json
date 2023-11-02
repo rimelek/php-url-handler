@@ -1,6 +1,7 @@
 {
     "name": "rimelek/url-handler",
-    "description": "URL handler parse URLs .",
+    "description": "URL handler parse URLs",
+    "license": "MIT",
     "authors": [
         {
             "name": "Takács Ákos",
