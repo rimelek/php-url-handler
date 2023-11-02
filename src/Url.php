@@ -210,7 +210,7 @@ class Url
         array_map('urlencode', $folders);
 
         // Encoding query string
-        $qs = $this->_get ? '?' . http_build_query($this->_get, null, $sep) : '';
+        $qs = $this->_get ? '?' . http_build_query($this->_get, '', $sep) : '';
         $fragment = $this->_fragment ? '#' . $this->_fragment : '';
         $protocol = $this->_protocol ? $this->_protocol . '://' : '';
 
